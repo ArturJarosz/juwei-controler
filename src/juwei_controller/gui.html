@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juwei-17 Controller</title>
+<script>
+  // Apply the saved layout before the page is drawn, so it doesn't jump.
+  try { if (localStorage.getItem("juwei.layout") === "2") document.documentElement.classList.add("two-col"); } catch (err) { /* one column */ }
+</script>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #1c2230; --muted: #687385; --border: #e1e4ea;
+    --chip: #eceff3; --accent: #2f6fde; --accent-text: #ffffff;
+    --ok: #17924a; --bad: #d23a2f; --warn: #b86e00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1218; --card: #181c24; --text: #e7e9ee; --muted: #98a1b0; --border: #2a303b;
+      --chip: #232935; --accent: #5b8ff0; --accent-text: #0b1020;
+      --ok: #3fbf6f; --bad: #f0675c; --warn: #e0a040;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--chip); font-size: 14px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+  .pill.ok .dot { background: var(--ok); }
+  .pill.bad .dot { background: var(--bad); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .big { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .presets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 16px 0 14px; }
+  .presets button { padding: 7px 2px; display: flex; flex-direction: column; align-items: center; line-height: 1.25; }
+  .presets .deg { font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+  .preview { min-width: 92px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  button { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--chip); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.active, button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  input[type=number] { width: 76px; font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+  .msg { min-height: 1.45em; margin-top: 10px; font-size: 14px; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--bad); }
+  .msg.warn { color: var(--warn); }
+  .note { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+  ul { margin: 8px 0 0; padding-left: 20px; }
+  li { margin: 4px 0; overflow-wrap: anywhere; }
+  pre { margin: 12px 0; padding: 10px 12px; border-radius: 8px; background: var(--chip); border: 1px solid var(--border);
+        font: 14px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow-x: auto; user-select: all; }
+  .controls { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; align-items: center; }
+  .controls .label { color: var(--muted); }
+  .seg { display: inline-flex; }
+  .seg button { border-radius: 0; }
+  .seg button:first-child { border-radius: 8px 0 0 8px; }
+  .seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+  button.armed { background: var(--warn); border-color: var(--warn); color: #111; }
+  .move-layout { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .pad { display: grid; grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(3, 68px); gap: 6px; flex: none; }
+  .pad button { padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+                border-radius: 12px; font-size: 13px; font-weight: 600; }
+  .pad svg { width: 26px; height: 26px; fill: currentColor; }
+  .pad .n { grid-area: 1 / 2; }
+  .pad .e { grid-area: 2 / 1; }
+  .pad .w { grid-area: 2 / 3; }
+  .pad .s { grid-area: 3 / 2; }
+  .pad .e svg { transform: rotate(-90deg); }
+  .pad .w svg { transform: rotate(90deg); }
+  .pad .s svg { transform: rotate(180deg); }
+  .pad .pad-stop { grid-area: 2 / 2; border-radius: 50%; color: var(--bad); border-color: var(--bad); background: transparent; }
+  .pad .pad-stop.urgent { background: var(--bad); color: #fff; }
+  .step { flex: 1; min-width: 220px; }
+  .step .label { color: var(--muted); margin-bottom: 6px; }
+  .step .other { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; color: var(--muted); }
+  .stop { width: 100%; margin-top: 16px; font-weight: 650; color: var(--bad); border-color: var(--bad); background: transparent; }
+  .stop.urgent { background: var(--bad); color: #fff; }
+  .settings-grid { display: grid; grid-template-columns: max-content 1fr; gap: 14px 18px; align-items: start; }
+  .settings-grid > .label { color: var(--muted); padding-top: 8px; }
+  .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .field input { width: 100px; }
+  .field input.short { width: 76px; }
+  select { font: inherit; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+  .clock { padding-top: 8px; }
+  @media (max-width: 520px) {
+    .settings-grid, .controls { grid-template-columns: 1fr; gap: 6px; }
+    .settings-grid > .label { padding-top: 10px; }
+  }
+  /* The layout switch only shows where two columns fit; narrower windows always get one column. */
+  .seg.layout-switch { display: none; }
+  .layout-switch button { padding: 6px 9px; display: inline-flex; }
+  .layout-switch svg { width: 18px; height: 18px; fill: currentColor; }
+  @media (min-width: 1200px) {
+    .seg.layout-switch { display: inline-flex; }
+    html.two-col main { max-width: 1400px; }
+    html.two-col #online { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; align-items: start; }
+    html.two-col #offline { max-width: 680px; margin-left: auto; margin-right: auto; }
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Juwei-17 Controller</h1>
+    <div class="row">
+      <div class="seg layout-switch" id="layout" role="group" aria-label="Layout">
+        <button type="button" data-columns="1" aria-label="One column" title="One column">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"/></svg></button>
+        <button type="button" data-columns="2" aria-label="Two columns" title="Two columns">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg></button>
+      </div>
+      <span id="conn" class="pill"><span class="dot"></span><span id="conn-text">Checking…</span></span>
+      <button id="conn-btn" type="button" class="hidden"></button>
+    </div>
+  </header>
+
+  <section id="offline" class="card hidden">
+    <h2>Mount not connected</h2>
+    <div id="offline-text"></div>
+    <pre id="fix" class="hidden"><code>sudo usermod -aG dialout $USER</code></pre>
+    <ul id="ports"></ul>
+  </section>
+
+  <section id="online" class="hidden">
+    <!-- In the two-column layout: operating the mount on the left, its speed and settings on the right. -->
+    <div class="col">
+    <div class="card">
+      <h2>Mount</h2>
+      <dl>
+        <dt>Port</dt><dd id="port"></dd>
+        <dt>Firmware</dt><dd id="firmware"></dd>
+        <dt>State</dt><dd id="state"></dd>
+        <dt>Pointing</dt><dd id="pointing"></dd>
+        <dt>Meridian flip</dt><dd id="flip"></dd>
+        <dt>Errors</dt><dd id="errors"></dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>Control</h2>
+      <div class="controls">
+        <span class="label">Tracking</span>
+        <div class="seg">
+          <button id="track-on" type="button" data-action="tracking_on">On</button>
+          <button id="track-off" type="button" data-action="tracking_off">Off</button>
+        </div>
+        <span class="label">Park</span>
+        <div class="row">
+          <button id="park-btn" type="button" data-action="park">Park</button>
+          <button id="set-park" type="button" data-action="set_park">Set park position here</button>
+        </div>
+        <span class="label">Home</span>
+        <div class="row">
+          <button id="home-btn" type="button" data-action="home">Go home</button>
+        </div>
+      </div>
+      <button id="stop-btn" type="button" class="stop" data-action="stop">Stop all motion</button>
+      <div class="msg" id="control-msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Move</h2>
+      <div class="move-layout">
+        <div class="pad" role="group" aria-label="Move the mount one step">
+          <button type="button" class="pad-btn n" data-direction="north" aria-label="Move north">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 12h5v9h6v-9h5z"/></svg>N</button>
+          <button type="button" class="pad-btn e" data-direction="east" aria-label="Move east">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 12h5v9h6v-9h5z"/></svg>E</button>
+          <button type="button" class="pad-stop" id="pad-stop" aria-label="Stop all motion">Stop</button>
+          <button type="button" class="pad-btn w" data-direction="west" aria-label="Move west">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 12h5v9h6v-9h5z"/></svg>W</button>
+          <button type="button" class="pad-btn s" data-direction="south" aria-label="Move south">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 12h5v9h6v-9h5z"/></svg>S</button>
+        </div>
+        <div class="step">
+          <div class="label">Step per click</div>
+          <div class="row">
+            <div class="seg" id="steps">
+              <button type="button" data-step="1">1°</button>
+              <button type="button" data-step="5">5°</button>
+              <button type="button" data-step="10">10°</button>
+              <button type="button" data-step="30">30°</button>
+            </div>
+            <label class="other">or <input type="number" id="step-custom" min="0.1" max="180" step="any" aria-label="Custom step in degrees"> °</label>
+          </div>
+          <p class="note">Each arrow click moves the mount one step at the goto slew speed. N/S turn the Dec axis, E/W turn the RA axis
+            (15° = 1 hour of RA). An E/W move across the meridian may flip the mount to the other side of the pier.</p>
+        </div>
+      </div>
+      <div class="msg" id="move-msg"></div>
+    </div>
+    </div>
+
+    <div class="col">
+    <div class="card">
+      <h2>Goto slew speed</h2>
+      <div class="big" id="speed"></div>
+      <div class="sub" id="rates"></div>
+      <div class="presets" id="presets"></div>
+      <div class="row">
+        <input type="range" id="slider" min="50" max="200" step="1" aria-label="Slew speed in percent of base">
+        <input type="number" id="percent" min="50" max="200" step="1" aria-label="Slew speed percent"> %
+        <span id="preview" class="preview" aria-live="polite"></span>
+        <button id="apply" type="button" class="primary">Apply</button>
+      </div>
+      <div class="msg" id="msg"></div>
+      <p class="note hidden" id="estimate-note">Speeds marked ≈ are estimates: this firmware reports its speed rounded to 0.1 °/s.</p>
+      <p class="note">The speed is stored in the mount. It stays while the mount is powered, also when you unplug USB and connect ASIAIR.
+        Whether it survives switching the mount off depends on its firmware: power-cycle the mount and check here.</p>
+    </div>
+
+    <div class="card" id="settings">
+      <h2>Settings</h2>
+      <div class="settings-grid">
+        <span class="label">Date &amp; time</span>
+        <div>
+          <div class="clock" id="clock">Reading…</div>
+          <div class="row" style="margin-top: 8px">
+            <button type="button" id="sync-time">Sync from this computer</button>
+          </div>
+        </div>
+
+        <span class="label">Location</span>
+        <div class="row">
+          <label class="field">Latitude <input type="number" id="lat" step="any" min="-90" max="90"> °</label>
+          <label class="field">Longitude <input type="number" id="lon" step="any" min="-180" max="180"> °</label>
+          <button type="button" id="save-location">Save</button>
+        </div>
+
+        <span class="label">Limits</span>
+        <div class="row">
+          <label class="field">Horizon <input type="number" class="short" id="horizon" min="-30" max="30" step="1"> °</label>
+          <label class="field">Overhead <input type="number" class="short" id="overhead" min="60" max="90" step="1"> °</label>
+          <button type="button" id="save-limits">Save</button>
+        </div>
+
+        <span class="label">Meridian</span>
+        <div>
+          <div class="row">
+            <span class="field">Automatic flip</span>
+            <div class="seg" id="flip-seg">
+              <button type="button" data-value="1">On</button>
+              <button type="button" data-value="0">Off</button>
+            </div>
+            <label class="field">Preferred side
+              <select id="pier-side">
+                <option value="B">Best</option>
+                <option value="E">East</option>
+                <option value="W">West</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" style="margin-top: 10px">
+            <label class="field">Track past meridian: east <input type="number" class="short" id="mer-east" min="-1440" max="1440" step="1"> min</label>
+            <label class="field">west <input type="number" class="short" id="mer-west" min="-1440" max="1440" step="1"> min</label>
+            <button type="button" id="save-meridian">Save</button>
+          </div>
+        </div>
+
+        <span class="label">Refraction</span>
+        <div class="seg" id="refraction-seg">
+          <button type="button" data-value="1">On</button>
+          <button type="button" data-value="0">Off</button>
+        </div>
+
+        <span class="label">Buzzer</span>
+        <div class="seg" id="buzzer-seg">
+          <button type="button" data-value="1">On</button>
+          <button type="button" data-value="0">Off</button>
+        </div>
+      </div>
+      <div class="msg" id="settings-msg"></div>
+      <p class="note">Latitude is positive north, longitude positive east, in decimal degrees. Location, limits and meridian limits are saved in the mount.
+        Changing the location or time changes where the mount thinks it points, so do it before aligning. ASIAIR usually sends its own date, time and location when it connects.</p>
+    </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// OnStep presets (:SX93,n#) as multiples of the base speed.
+const PRESETS = [[5, 0.5], [4, 2 / 3], [3, 1], [2, 1.5], [1, 2]];
+const POLL_MS = 2000;
+const POLL_MOVING_MS = 500;
+const $ = (id) => document.getElementById(id);
+let busy = false;
+let moving = false;
+let slew = null;  // latest slew settings from the mount
+
+async function api(path, body) {
+  const options = body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+  const res = await fetch(path, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function setMessage(text, kind, id = "msg") {
+  const el = $(id);
+  el.textContent = text;
+  el.className = "msg" + (kind ? " " + kind : "");
+}
+
+// Same rules as format_deg_per_s in onstep.py: 1.5 -> "1.5", 0.6667 -> "0.67", estimates "≈1.2".
+function fmtDeg(value, exact) {
+  if (!exact) return "≈" + value.toFixed(1) + " °/s";
+  let text = value.toFixed(2);
+  if (text.endsWith("0")) text = text.slice(0, -1);
+  return text + " °/s";
+}
+
+// Speed the mount will use for a given % of base, including its hardware limit.
+function degAtPercent(s, percent) {
+  if (s.base_deg_per_s == null) return null;
+  const factor = Math.min(percent / 100, s.allowed_percent[1] / 100);
+  return s.base_deg_per_s * factor;
+}
+
+function fmtSpeed(s) {
+  const pct = Math.round(s.percent_of_base) + "% of base";
+  return s.current_deg_per_s == null ? pct : fmtDeg(s.current_deg_per_s, s.speed_is_exact) + "  ·  " + pct;
+}
+
+function updatePreview() {
+  const el = $("preview");
+  const pct = Number($("percent").value);
+  if (!slew || !Number.isFinite(pct)) { el.textContent = ""; return; }
+  const [minPct, maxPct] = slew.allowed_percent;
+  if (pct < minPct || pct > Math.floor(maxPct)) { el.textContent = minPct + "–" + Math.floor(maxPct) + "% only"; return; }
+  const deg = degAtPercent(slew, pct);
+  el.textContent = deg == null ? "" : "= " + fmtDeg(deg, slew.speed_is_exact);
+}
+
+// "+22*00:52" (LX200 style) -> "+22°00′52″"
+function fmtDec(dec) {
+  return dec.replace("*", "°").replace(/:(\d\d)$/, "′$1″");
+}
+
+function stateText(s) {
+  const parts = [s.tracking ? "tracking" : "not tracking"];
+  if (s.slewing) parts.push("slewing");
+  if (s.homing) parts.push("homing");
+  if (s.guiding) parts.push("guiding");
+  parts.push(s.park);
+  if (s.at_home) parts.push("at home");
+  return parts.join(", ");
+}
+
+function buildPresets() {
+  const box = $("presets");
+  for (const [preset, factor] of PRESETS) {
+    const pct = Math.round(factor * 100);
+    const b = document.createElement("button");
+    b.type = "button";
+    const label = document.createElement("span");
+    label.textContent = pct + "%";
+    const deg = document.createElement("span");
+    deg.className = "deg";
+    b.append(label, deg);
+    b.dataset.pct = factor * 100;
+    b.addEventListener("click", () => change({ preset }, pct + "%"));
+    box.appendChild(b);
+  }
+}
+
+function setControlsEnabled(enabled) {
+  for (const el of document.querySelectorAll("#presets button, #slider, #percent, #apply")) el.disabled = !enabled;
+}
+
+function renderConnection(st) {
+  const pill = $("conn"), text = $("conn-text"), btn = $("conn-btn");
+  btn.classList.remove("hidden");
+  if (st.connected) {
+    pill.className = "pill ok";
+    text.textContent = "Connected on " + st.device;
+    btn.textContent = "Release port";
+    btn.title = "Close the USB port so other software on this computer can use the mount";
+  } else if (st.paused) {
+    pill.className = "pill";
+    text.textContent = "Port released";
+    btn.textContent = "Connect";
+    btn.title = "";
+  } else {
+    pill.className = "pill bad";
+    text.textContent = "Not connected";
+    btn.classList.add("hidden");
+  }
+}
+
+function renderOffline(st) {
+  const text = $("offline-text"), list = $("ports"), fix = $("fix");
+  list.replaceChildren();
+  fix.classList.add("hidden");
+  if (st.paused) {
+    text.textContent = "The app has released the USB port so other software can use the mount. Click Connect to take it back.";
+    return;
+  }
+  const lead = st.lost ? "Lost the connection (" + st.lost + "). " : "";
+  if (!st.ports.length) {
+    text.textContent = lead + "No USB serial ports found. Plug the mount into this computer and switch it on.";
+    return;
+  }
+  const kinds = new Set(st.ports.map((p) => p.error_kind));
+  const blocked = st.ports.find((p) => p.error_kind === "permission_restart");
+  if (blocked) {
+    text.textContent = lead + "Your account is now in the 'dialout' group, but Linux only applies that to programs "
+      + "started after you log in again. Restart the computer, then start this app again. "
+      + "To use the mount right now without restarting, run this in a terminal (it lasts until you unplug the mount):";
+    fix.firstChild.textContent = "sudo chmod a+rw " + blocked.device;
+    fix.classList.remove("hidden");
+  } else if (kinds.has("permission")) {
+    text.textContent = lead + "A USB serial device is plugged in, but this computer doesn't allow the app to open it. "
+      + "Your user account needs to be in the 'dialout' group. Run this once in a terminal, "
+      + "then restart the computer:";
+    fix.firstChild.textContent = "sudo usermod -aG dialout $USER";
+    fix.classList.remove("hidden");
+  } else if (kinds.has("busy")) {
+    text.textContent = lead + "Another program is using the USB port: KStars/INDI, NINA, or another copy of this app. "
+      + "Close it (or click Release port in the other copy) and this page will connect by itself.";
+  } else if (kinds.has("no_reply")) {
+    text.textContent = lead + "A USB serial device is plugged in, but no OnStep mount answered. Is the mount switched on?";
+  } else {
+    text.textContent = lead + "No OnStep mount answered on these USB serial ports:";
+  }
+  for (const p of st.ports) {
+    const li = document.createElement("li");
+    li.textContent = p.device + (p.description && p.description !== p.device ? " (" + p.description + ")" : "") + ": " + p.error;
+    list.appendChild(li);
+  }
+}
+
+function renderOnline(st) {
+  const s = st.status;
+  slew = st.slew;
+  $("port").textContent = st.device + (st.description !== st.device ? " (" + st.description + ")" : "") + ", " + st.baud + " baud";
+  $("firmware").textContent = st.product + " " + st.version + (st.firmware_date ? " (" + st.firmware_date + ")" : "");
+  $("state").textContent = stateText(s);
+  $("pointing").textContent = st.position ? "RA " + st.position.ra + "   Dec " + fmtDec(st.position.dec) : "unknown";
+  $("flip").textContent = s.auto_meridian_flip ? "automatic" : "manual";
+  $("errors").textContent = s.error;
+
+  $("speed").textContent = fmtSpeed(slew);
+  const [minPct, maxPct] = slew.allowed_percent;
+  const baseDeg = slew.base_deg_per_s == null ? "" : " = " + fmtDeg(slew.base_deg_per_s, slew.speed_is_exact);
+  $("rates").textContent = slew.current_us_per_step.toFixed(3) + " µs/step  ·  100%" + baseDeg
+    + "  ·  allowed " + minPct + "–" + Math.floor(maxPct) + "%";
+  $("estimate-note").classList.toggle("hidden", slew.speed_is_exact || slew.base_deg_per_s == null);
+
+  for (const b of $("presets").children) {
+    const pct = Number(b.dataset.pct);
+    const deg = degAtPercent(slew, pct);
+    b.lastChild.textContent = deg == null ? "" : fmtDeg(deg, slew.speed_is_exact);
+    b.classList.toggle("active", Math.abs(pct - slew.percent_of_base) < 1);
+  }
+  const slider = $("slider"), input = $("percent");
+  slider.min = input.min = minPct;
+  slider.max = input.max = Math.floor(maxPct);
+  // Don't overwrite a value the user is still editing.
+  if (document.activeElement !== slider && document.activeElement !== input) {
+    slider.value = input.value = Math.round(slew.percent_of_base);
+  }
+  updatePreview();
+
+  moving = s.slewing || s.homing || s.guiding;
+  setControlsEnabled(!moving && !busy);
+  if (moving) setMessage("The mount is moving. Wait until it stops to change the speed.", "warn");
+  else if ($("msg").classList.contains("warn")) setMessage("");
+  renderControls(s);
+}
+
+// Actions that move the mount or overwrite a setting need a second click to confirm.
+const CONFIRM = {
+  park: ["Click again to park", "The mount will slew to its park position and stop tracking. Check that cables and the tripod are clear."],
+  home: ["Click again to go home", "The mount will slew to its home position (counterweight down, pointing at the pole) and stop tracking. Check that cables and the tripod are clear."],
+  set_park: ["Click again to save", "This replaces the park position stored in the mount with the position it points at now."],
+};
+const DONE = {
+  park: "Parking. The mount stays parked until you unpark it, also after it is switched off.",
+  unpark: "Unparked. Tracking is on.",
+  set_park: "Park position saved.",
+  home: "Going home.",
+  tracking_on: "Tracking on.",
+  tracking_off: "Tracking off.",
+  stop: "Stopped.",
+};
+let armed = null;
+let armTimer = null;
+
+function disarm() {
+  if (!armed) return;
+  armed.classList.remove("armed");
+  armed.textContent = armed.dataset.label;
+  armed = null;
+  clearTimeout(armTimer);
+  setMessage("", null, "control-msg");
+}
+
+function renderControls(s) {
+  const parked = s.park === "parked";
+  const idle = !moving && !busy;
+  $("track-on").classList.toggle("active", s.tracking);
+  $("track-off").classList.toggle("active", !s.tracking);
+  $("track-on").disabled = !idle || parked;
+  $("track-on").title = parked ? "Unpark first" : "";
+  $("track-off").disabled = !idle;
+
+  const park = $("park-btn");
+  const parkAction = parked ? "unpark" : "park";
+  if (park.dataset.action !== parkAction) {
+    if (armed === park) disarm();
+    park.dataset.action = parkAction;
+  }
+  if (armed !== park) park.textContent = parked ? "Unpark" : s.park === "parking" ? "Parking…" : "Park";
+  park.disabled = !idle;
+  $("set-park").disabled = !idle || parked;
+  $("home-btn").disabled = !idle || parked;
+  $("home-btn").title = parked ? "Unpark first" : "";
+  for (const b of document.querySelectorAll(".pad-btn")) {
+    b.disabled = !idle || parked;
+    b.title = parked ? "Unpark first" : "";
+  }
+  if (armed && armed.disabled) disarm();
+  $("stop-btn").classList.toggle("urgent", moving);
+  $("pad-stop").classList.toggle("urgent", moving);
+}
+
+// Degrees per arrow click, remembered in this browser.
+const STEP_KEY = "juwei.moveStep";
+let step = 10;
+
+function loadStep() {
+  try {
+    const saved = Number(localStorage.getItem(STEP_KEY));
+    if (saved > 0 && saved <= 180) step = saved;
+  } catch (err) { /* storage unavailable: keep the default */ }
+}
+
+function setStep(value, typed = false) {
+  step = value;
+  try { localStorage.setItem(STEP_KEY, String(value)); } catch (err) { /* still used, just not remembered */ }
+  renderStep(typed);
+}
+
+function renderStep(typed = false) {
+  let isPreset = false;
+  for (const b of $("steps").children) {
+    const match = Number(b.dataset.step) === step;
+    b.classList.toggle("active", match);
+    isPreset = isPreset || match;
+  }
+  if (!typed) $("step-custom").value = isPreset ? "" : step;
+}
+
+// One or two columns, remembered in this browser. The head script applies the saved choice on load.
+const LAYOUT_KEY = "juwei.layout";
+
+function setLayout(columns) {
+  document.documentElement.classList.toggle("two-col", columns === 2);
+  try { localStorage.setItem(LAYOUT_KEY, String(columns)); } catch (err) { /* still used, just not remembered */ }
+  renderLayout();
+}
+
+function renderLayout() {
+  const two = document.documentElement.classList.contains("two-col");
+  for (const b of $("layout").children) {
+    const chosen = (b.dataset.columns === "2") === two;
+    b.classList.toggle("active", chosen);
+    b.setAttribute("aria-pressed", String(chosen));
+  }
+}
+
+function controlClicked(button) {
+  const confirmation = CONFIRM[button.dataset.action];
+  if (confirmation && armed !== button) {
+    disarm();
+    armed = button;
+    button.dataset.label = button.textContent;
+    button.textContent = confirmation[0];
+    button.classList.add("armed");
+    setMessage(confirmation[1], "warn", "control-msg");
+    armTimer = setTimeout(disarm, 6000);
+    return;
+  }
+  disarm();
+  runControl(button.dataset.action);
+}
+
+// Run one request with the buttons locked, and show its outcome in the message line msgId.
+async function perform(msgId, work) {
+  busy = true;
+  setControlsEnabled(false);
+  for (const b of document.querySelectorAll(".controls button, .pad-btn")) b.disabled = true;
+  try {
+    setMessage(await work(), "ok", msgId);
+  } catch (err) {
+    setMessage(err.message.charAt(0).toUpperCase() + err.message.slice(1) + ".", "err", msgId);
+  } finally {
+    busy = false;
+    await refresh();
+  }
+}
+
+function runControl(action, msgId = "control-msg") {
+  if (busy && action !== "stop") return;
+  perform(msgId, async () => {
+    render(await api("/api/control", { action }));
+    return DONE[action];
+  });
+}
+
+function runMove(direction) {
+  if (busy) return;
+  disarm();
+  const degrees = step;
+  perform("move-msg", async () => {
+    const { target } = await api("/api/move", { direction, degrees });
+    return "Moving " + degrees + "° " + direction + " to RA " + target.ra + ", Dec " + fmtDec(target.dec) + ".";
+  });
+}
+
+// --- Settings: read when the mount connects and after each change, not on every poll ---------------
+let settingsLoaded = false;
+
+function setInput(id, value) {
+  const el = $(id);
+  if (document.activeElement !== el) el.value = value == null ? "" : value;
+}
+
+function setSeg(id, value) {
+  for (const b of $(id).children) {
+    b.classList.toggle("active", value != null && b.dataset.value === (value ? "1" : "0"));
+    b.disabled = value == null;
+  }
+}
+
+function fmtOffset(hours) {
+  const sign = hours < 0 ? "−" : "+";
+  const minutes = Math.round(Math.abs(hours) * 60);
+  return "UTC" + sign + Math.floor(minutes / 60) + (minutes % 60 ? ":" + String(minutes % 60).padStart(2, "0") : "");
+}
+
+function fmtClockError(seconds) {
+  if (seconds == null) return "";
+  const abs = Math.abs(seconds);
+  if (abs < 5) return "matches this computer";
+  const h = Math.floor(abs / 3600), m = Math.floor(abs % 3600 / 60), s = Math.round(abs % 60);
+  const parts = [h ? h + " h" : "", m ? m + " min" : "", !h && s ? s + " s" : ""].filter(Boolean);
+  return parts.join(" ") + (seconds > 0 ? " ahead of" : " behind") + " this computer";
+}
+
+function renderSettings(s) {
+  const site = s.site;
+  if (site.date_time_ready) {
+    const [mm, dd, yy] = site.local_date.split("/");
+    const parts = ["20" + yy + "-" + mm + "-" + dd + " " + site.local_time, fmtOffset(site.utc_offset_hours), fmtClockError(site.clock_error_s)];
+    $("clock").textContent = parts.filter(Boolean).join("  ·  ");
+  } else {
+    $("clock").textContent = "Not set. Move and gotos need the date and time.";
+  }
+  setInput("lat", +site.latitude.toFixed(4));
+  setInput("lon", +site.longitude.toFixed(4));
+  setInput("horizon", s.limits.horizon_deg);
+  setInput("overhead", s.limits.overhead_deg);
+  setInput("mer-east", s.limits.meridian_east_min);
+  setInput("mer-west", s.limits.meridian_west_min);
+  setSeg("flip-seg", s.auto_meridian_flip);
+  const side = $("pier-side");
+  if (s.preferred_pier_side && ![...side.options].some((o) => o.value === s.preferred_pier_side)) {
+    side.add(new Option(s.preferred_pier_side, s.preferred_pier_side));
+  }
+  side.value = s.preferred_pier_side || "";
+  side.disabled = s.preferred_pier_side == null;
+  setSeg("refraction-seg", s.refraction === "off" ? false : true);
+  setSeg("buzzer-seg", s.buzzer);
+}
+
+async function loadSettings() {
+  try {
+    renderSettings(await api("/api/settings"));
+    settingsLoaded = true;
+  } catch (err) {
+    setMessage("Couldn't read the settings: " + err.message + ".", "err", "settings-msg");
+  }
+}
+
+async function changeSetting(body, done) {
+  if (busy) return;
+  busy = true;
+  const controls = document.querySelectorAll("#settings button, #settings input, #settings select");
+  for (const el of controls) el.disabled = true;
+  try {
+    renderSettings(await api("/api/settings", body));
+    setMessage(done, "ok", "settings-msg");
+  } catch (err) {
+    setMessage(err.message.charAt(0).toUpperCase() + err.message.slice(1) + ".", "err", "settings-msg");
+    for (const el of controls) el.disabled = false;
+    await loadSettings();
+  } finally {
+    // renderSettings decides the toggles and the pier-side list; the inputs and Save buttons always come back.
+    for (const el of document.querySelectorAll("#settings input, #sync-time, #save-location, #save-limits, #save-meridian")) el.disabled = false;
+    busy = false;
+    await refresh();
+  }
+}
+
+function numberOrNull(id) {
+  const raw = $(id).value.trim();
+  return raw === "" ? null : Number(raw);
+}
+
+$("sync-time").addEventListener("click", () => changeSetting({ setting: "time" }, "Date, time and time zone set from this computer."));
+$("save-location").addEventListener("click", () => changeSetting(
+  { setting: "location", latitude: numberOrNull("lat"), longitude: numberOrNull("lon") }, "Location saved."));
+$("save-limits").addEventListener("click", () => changeSetting(
+  { setting: "limits", horizon: numberOrNull("horizon"), overhead: numberOrNull("overhead") }, "Limits saved."));
+$("save-meridian").addEventListener("click", () => changeSetting(
+  { setting: "limits", meridian_east: numberOrNull("mer-east"), meridian_west: numberOrNull("mer-west") }, "Meridian limits saved."));
+$("pier-side").addEventListener("change", () => changeSetting(
+  { setting: "pier_side", side: $("pier-side").value }, "Preferred pier side saved."));
+for (const [id, setting, label] of [["flip-seg", "auto_meridian_flip", "Automatic meridian flip"],
+                                     ["refraction-seg", "refraction", "Refraction compensation"],
+                                     ["buzzer-seg", "buzzer", "Buzzer"]]) {
+  for (const b of $(id).children) {
+    b.addEventListener("click", () => {
+      const on = b.dataset.value === "1";
+      changeSetting({ setting, on }, label + (on ? " on." : " off."));
+    });
+  }
+}
+
+function render(st) {
+  renderConnection(st);
+  $("online").classList.toggle("hidden", !st.connected);
+  $("offline").classList.toggle("hidden", st.connected);
+  if (st.connected) {
+    renderOnline(st);
+    if (!settingsLoaded && !busy) loadSettings();
+  } else {
+    settingsLoaded = false;
+    renderOffline(st);
+  }
+}
+
+async function refresh() {
+  try {
+    render(await api("/api/state"));
+  } catch (err) {
+    $("conn").className = "pill bad";
+    $("conn-text").textContent = "App not running";
+    $("conn-btn").classList.add("hidden");
+  }
+}
+
+async function change(body, label) {
+  if (busy) return;
+  busy = true;
+  setControlsEnabled(false);
+  setMessage("Setting " + label + "…");
+  try {
+    const { slew } = await api("/api/slew", body);
+    setMessage("Saved: " + fmtSpeed(slew) + ".", "ok");
+    document.activeElement.blur();
+  } catch (err) {
+    setMessage("Not changed: " + err.message, "err");
+  } finally {
+    busy = false;
+    await refresh();
+  }
+}
+
+function applyPercent() {
+  const pct = Number($("percent").value);
+  if (!Number.isFinite(pct)) return setMessage("Enter a percentage.", "err");
+  change({ percent: pct }, pct + "%");
+}
+
+$("slider").addEventListener("input", () => { $("percent").value = $("slider").value; updatePreview(); });
+$("percent").addEventListener("input", () => { $("slider").value = $("percent").value; updatePreview(); });
+$("percent").addEventListener("keydown", (e) => { if (e.key === "Enter") applyPercent(); });
+$("apply").addEventListener("click", applyPercent);
+for (const b of document.querySelectorAll(".controls button")) b.addEventListener("click", () => controlClicked(b));
+$("stop-btn").addEventListener("click", () => { disarm(); runControl("stop"); });
+for (const b of document.querySelectorAll(".pad-btn")) b.addEventListener("click", () => runMove(b.dataset.direction));
+$("pad-stop").addEventListener("click", () => { disarm(); runControl("stop", "move-msg"); });
+for (const b of $("steps").children) b.addEventListener("click", () => setStep(Number(b.dataset.step)));
+$("step-custom").addEventListener("input", () => {
+  const raw = $("step-custom").value;
+  const value = Number(raw);
+  if (raw === "") return;
+  if (value > 0 && value <= 180) {
+    setStep(value, true);
+    setMessage("", null, "move-msg");
+  } else {
+    setMessage("A step must be more than 0° and at most 180°.", "err", "move-msg");
+  }
+});
+for (const b of $("layout").children) b.addEventListener("click", () => setLayout(Number(b.dataset.columns)));
+$("conn-btn").addEventListener("click", async () => {
+  const path = $("conn-btn").textContent === "Connect" ? "/api/connect" : "/api/disconnect";
+  try { render(await api(path, {})); } catch (err) { setMessage(err.message, "err"); }
+});
+
+// Wait for each check to finish before scheduling the next, since searching USB ports can take a few seconds.
+async function poll() {
+  if (!busy) await refresh();
+  // Check more often while the mount moves, so the controls come back as soon as it stops.
+  setTimeout(poll, moving ? POLL_MOVING_MS : POLL_MS);
+}
+
+buildPresets();
+renderLayout();
+loadStep();
+renderStep();
+poll();
+</script>
+</body>
+</html>

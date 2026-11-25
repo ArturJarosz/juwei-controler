@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "juwei-gui-simulated",
+      "runtimeExecutable": "./juwei",
+      "runtimeArgs": ["gui", "--simulate", "--no-browser", "--http-port", "8021"],
+      "port": 8021,
+      "autoPort": false
+    },
+    {
+      "name": "juwei-gui-usb",
+      "runtimeExecutable": "./juwei",
+      "runtimeArgs": ["gui", "--no-browser", "--http-port", "8020"],
+      "port": 8020,
+      "autoPort": false
+    }
+  ]
+}

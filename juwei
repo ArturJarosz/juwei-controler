@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Run the app from this folder without installing it (needs python3 and pyserial).
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHONPATH="$here/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m juwei_controller "$@"
