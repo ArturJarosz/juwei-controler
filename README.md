@@ -1,4 +1,5 @@
 # Juwei-17 controller
+<img width="1405" height="1017" alt="image" src="https://github.com/user-attachments/assets/b9aac731-31bc-4239-818f-ec68da102fae" />
 
 A small app that checks whether a Juwei-17 mount is connected over USB, and reads and changes its goto slew speed. You can use it from a graphical interface in your web browser, or from the command line.
 
